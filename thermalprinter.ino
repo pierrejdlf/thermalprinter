@@ -38,12 +38,12 @@ int t = 1; // loop for thermal head clock/data/...
 uint8_t linedata[] = {
   0x11,0x00,0x22};
 
-int TCLOCK = 1; // clock period in microseconds
+int TCLOCK = 1; // clock period in microseconds (is actually much longer because of the in-between operations)
 int MAXTEMP = 27; // max Temp°C before turning everything off
 
 // durations as clock cycles
 int NLAT = 432; // one dot data every clock period before releasing LATCH
-int NSTB = 700; // MAX is 670 microseconds
+int NSTB = 650; // MAX is 670 microseconds
 int NWAIT = 25; // lets wait some cycles between events 
 int NTOTAL = NLAT + 3*NSTB + 5*NWAIT;
 
@@ -71,7 +71,7 @@ void setup() {
   pinMode(VOLTSWITCH, OUTPUT);
 
   // blink the LED:
-  blink(3);
+  //blink(3);
   Serial.println("Printer setup done. Welcome.");
   myStepper.step(-20);
 
@@ -95,7 +95,7 @@ void loop() {
     Serial.println("========= TEMPERATURE WARNING !! aborting all");
     resetPrinter(); // will set printing=false and stop Vh current
     blink(10);
-    delay(5000);
+    delay(10000);
   }
 
   if(printing) {
@@ -133,7 +133,6 @@ void loop() {
 ////////////////////////////////////////////////////////
 // this is a clock cycle
 void cycle(int k) {
-  //setPinVal(CLK,LOW);
 
   // first we send the DATA
   if(k<NLAT) setPinVal(DATA, HIGH); // TEST ALL BLACK
@@ -145,7 +144,7 @@ void cycle(int k) {
     setPinVal(LAT,LOW);
     Serial.println("!!!!! LATCHED");
   }
-  if(k==NLAT+4)
+  if(k==NLAT+15)
     setPinVal(LAT,HIGH);
 
   // after all that, let's burn paper with the STROBES
@@ -165,8 +164,10 @@ void cycle(int k) {
     setPinVal(STB3,HIGH);
 
   // CLOCK
-  delayMicroseconds(TCLOCK);
-  setPinVal(CLK, k%2==0 ? HIGH : LOW);
+  //delayMicroseconds(3*TCLOCK);
+  setPinVal(CLK,HIGH);
+  //delayMicroseconds(TCLOCK);
+  setPinVal(CLK,LOW);
 }
 
 ////////////////////////////////////////////////////////
@@ -201,27 +202,19 @@ void printLine() {
 ////////////////////////////////////////////////////////
 // prints an image
 void printImageData(const uint8_t *image,int w,int h) {
-  //if(w>432) return 0;
-
+  
   // a full width image line is 432 = 144*3 dots
   // each strobe gets 144 = 8*18 dots, aka 18 bytes
   // the minimal image is a full-width-one-line, aka an array of 18*3 = 54 bytes
   // let's suppose the image has exactly w=432, aka h*54 bytes in its data
+  
   for(int rowStart=0; rowStart<h; rowStart+=54) {
-    //int chunkHeight = ((h-rowStart) > 53) ? 53 : (h-rowStart);
-    //    Serial.println("SAMPLE Linedata array was (0,1):");
-    //    Serial.println(linedata[0]);
-    //    Serial.println(linedata[1]);
-    // get linedata pointer
     *linedata = pgm_read_byte(image+rowStart);
-    /*Serial.println("SAMPLE SET Linedata array is now (first 3):");
-    Serial.println(linedata[0]);
-    Serial.println(linedata[1]);
-    Serial.println(linedata[2]);*/
+    /*Serial.println("SAMPLE Linedata array (first 3):");
+     Serial.println(linedata[0]);
+     Serial.println(linedata[1]);
+     Serial.println(linedata[2]);*/
     printLine();
-    //    for (int i=0; i<((w/8)*chunkHeight); i++) {
-    //      printLine( pgm_read_byte(image + (rowStart*(w/8)) + i) );
-    //    }
   }
 }
 
@@ -234,11 +227,11 @@ void resetPrinter() {
   setPinVal(STB2,HIGH);
   setPinVal(STB3,HIGH);
   setPinVal(LAT,HIGH);
-  setPinVal(DATA,LOW);
+  setPinVal(DATA,HIGH);
 }
 
 ////////////////////////////////////////////////////////
-void setPinVal(int pin,int val) {
+void setPinVal(uint8_t pin, uint8_t val) {
   //if(pin==STB1 || pin==STB2 || pin==STB3)
   if(debug) {
     //Serial.print("Setting pin");
@@ -247,7 +240,7 @@ void setPinVal(int pin,int val) {
     if(pin==STB1 || pin==STB2 || pin==STB3) {
       Serial.print(pin);
       Serial.print(" STROBE: ");
-      Serial.println(val==1 ? "HIGH" : "LOW");
+      Serial.println(val);
       printTime("made strobe:");
     }
     digitalWrite(pin,val);
@@ -279,7 +272,7 @@ double getTemperature(boolean verbose) {
 // printTime
 void printTime(String str) {
   Serial.print(str);
-  Serial.print(" Time(milliseconds) is: ");
+  Serial.print(" Time (ms) is: ");
   Serial.println((micros() - starttime)/1000.0);
 }
 
@@ -289,11 +282,13 @@ void blink(int howManyTimes) {
   int i;
   for (i=0; i< howManyTimes; i++) {
     digitalWrite(ledPin, HIGH);
-    delay(200);
+    delay(100);
     digitalWrite(ledPin, LOW);
-    delay(200);
+    delay(100);
   }
 }
+
+
 
 
 
