@@ -164,9 +164,9 @@ void cycle(int k) {
     setPinVal(STB3,HIGH);
 
   // CLOCK
-  //delayMicroseconds(3*TCLOCK);
+  delayMicroseconds(TCLOCK);
   setPinVal(CLK,HIGH);
-  //delayMicroseconds(TCLOCK);
+  delayMicroseconds(TCLOCK);
   setPinVal(CLK,LOW);
 }
 
