@@ -15,9 +15,10 @@
 #define motorPin3 10
 #define motorPin4 11
 
-// temperature & LED pins
-#define tPin 0
+// temperature check, LED for info, button to start printing
+#define tempPin 0
 #define ledPin 13
+#define buttonPin 7
 
 // thermal head pins
 #define STB1 1
@@ -30,11 +31,12 @@
 
 boolean debug = false;
 boolean printing = false;
-boolean goprint = true;
+boolean goprint = false; // use button
 
 int t = 1; // loop for thermal head clock/data/...
 
 // whole line data that will be sent to the DATA pin for one line
+// let's init it with random values, it will be overriden anyway
 uint8_t linedata[] = {
   0x11,0x00,0x22};
 
@@ -43,8 +45,8 @@ int MAXTEMP = 27; // max Temp°C before turning everything off
 
 // durations as clock cycles
 int NLAT = 432; // one dot data every clock period before releasing LATCH
-int NSTB = 650; // MAX is 670 microseconds
-int NWAIT = 25; // lets wait some cycles between events 
+int NSTB = 700; // MAX is 670 microseconds
+int NWAIT = 5; // lets wait some cycles between events 
 int NTOTAL = NLAT + 3*NSTB + 5*NWAIT;
 
 long starttime = micros();
@@ -69,6 +71,7 @@ void setup() {
   pinMode(DATA, OUTPUT);
   pinMode(CLK, OUTPUT);
   pinMode(VOLTSWITCH, OUTPUT);
+  pinMode(buttonPin, INPUT);
 
   // blink the LED:
   //blink(3);
@@ -101,7 +104,9 @@ void loop() {
   if(printing) {
     if(t==1) {
       blink(1);
-      Serial.println("Printing cycle launch in 1 seconds !");
+      Serial.println("");
+      Serial.println("");
+      Serial.println("========= Printing cycle launch in 1 seconds !");
       delay(1000);
       blink(2);
     }
@@ -114,7 +119,7 @@ void loop() {
     t = t+1;
     if(t>NTOTAL) {
       printing = false;
-      Serial.println("Printing cycle ends.");
+      Serial.println("========= Printing cycle ends.");
       resetPrinter();
       myStepper.step(-120);
     }
@@ -128,6 +133,12 @@ void loop() {
     // plugging 24V POWER
     setPinVal(VOLTSWITCH,HIGH);
   }
+
+  int val = digitalRead(buttonPin);  // read input value
+  if(!printing && !goprint && val==HIGH) { 
+    Serial.println("Button pushed. Launching print");
+    goprint = true;
+  }
 }
 
 ////////////////////////////////////////////////////////
@@ -135,16 +146,16 @@ void loop() {
 void cycle(int k) {
 
   // first we send the DATA
-  if(k<NLAT) setPinVal(DATA, HIGH); // TEST ALL BLACK
-  //if(k<NLAT) setPinVal(DATA, pixelValue(k-1) ? HIGH : LOW ); // k-1 cause we started at 1
+  if(k<=NLAT) setPinVal(DATA, HIGH); // TEST ALL BLACK
+  //if(k<=NLAT) setPinVal(DATA, pixelValue(k-1) ? HIGH : LOW ); // k-1 cause we started at 1
   //else setPinVal(DATA,LOW);
 
   // every 432 dots, we will load the data using LATCH
-  if(k==NLAT) {
+  if(k==NLAT+1) {
     setPinVal(LAT,LOW);
-    Serial.println("!!!!! LATCHED");
+    Serial.println("----- LATCHED !");
   }
-  if(k==NLAT+15)
+  if(k==NLAT+2)
     setPinVal(LAT,HIGH);
 
   // after all that, let's burn paper with the STROBES
@@ -164,9 +175,9 @@ void cycle(int k) {
     setPinVal(STB3,HIGH);
 
   // CLOCK
-  delayMicroseconds(TCLOCK);
+  //delayMicroseconds(TCLOCK);
   setPinVal(CLK,HIGH);
-  delayMicroseconds(TCLOCK);
+  //delayMicroseconds(TCLOCK);
   setPinVal(CLK,LOW);
 }
 
@@ -202,12 +213,12 @@ void printLine() {
 ////////////////////////////////////////////////////////
 // prints an image
 void printImageData(const uint8_t *image,int w,int h) {
-  
+
   // a full width image line is 432 = 144*3 dots
   // each strobe gets 144 = 8*18 dots, aka 18 bytes
   // the minimal image is a full-width-one-line, aka an array of 18*3 = 54 bytes
   // let's suppose the image has exactly w=432, aka h*54 bytes in its data
-  
+
   for(int rowStart=0; rowStart<h; rowStart+=54) {
     *linedata = pgm_read_byte(image+rowStart);
     /*Serial.println("SAMPLE Linedata array (first 3):");
@@ -231,8 +242,10 @@ void resetPrinter() {
 }
 
 ////////////////////////////////////////////////////////
-void setPinVal(uint8_t pin, uint8_t val) {
-  //if(pin==STB1 || pin==STB2 || pin==STB3)
+void setPinVal(int pin, int val) {
+  if(pin!=6 && pin!=5) printTime("changed pin "+String(pin)+":");
+  digitalWrite(pin,val);
+  /*
   if(debug) {
     //Serial.print("Setting pin");
   }
@@ -244,14 +257,14 @@ void setPinVal(uint8_t pin, uint8_t val) {
       printTime("made strobe:");
     }
     digitalWrite(pin,val);
-  }
+  }*/
 }
 
 ////////////////////////////////////////////////////////
 // get the thermal head temp in C°
 double getTemperature(boolean verbose) {
   // display initial temperature
-  int rawA = analogRead(tPin); // 0 to 1023
+  int rawA = analogRead(tempPin); // 0 to 1023
   double Rk = 10.0/((1024.0/rawA)-1.0);
   double T = 0;
   if(Rk<40) T = 20;
@@ -287,6 +300,7 @@ void blink(int howManyTimes) {
     delay(100);
   }
 }
+
 
 
 
