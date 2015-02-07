@@ -31,7 +31,7 @@
 
 boolean debug = false;
 boolean printing = false;
-boolean goprint = false; // use button
+boolean goprint = false; // rather use button to launch print
 
 int t = 1; // loop for thermal head clock/data/...
 
@@ -56,12 +56,6 @@ Stepper myStepper(motorSteps,motorPin1,motorPin2,motorPin3,motorPin4);
 
 ////////////////////////////////////////////////////////
 void setup() {
-  resetPrinter();
-  // set the motor speed at 60 RPMS:
-  myStepper.setSpeed(150);
-  // Initialize the Serial port:
-  Serial.begin(9600);
-
   // set up pin modes:
   pinMode(ledPin, OUTPUT);
   pinMode(STB1, OUTPUT);
@@ -73,12 +67,20 @@ void setup() {
   pinMode(VOLTSWITCH, OUTPUT);
   pinMode(buttonPin, INPUT);
 
+  Serial.begin(9600);
+
+  resetPrinter();
+  // set the motor speed at 60 RPMS:
+  myStepper.setSpeed(500);
+
   // blink the LED:
   //blink(3);
-  Serial.println("Printer setup done. Welcome.");
-  myStepper.step(-20);
+  Serial.println("Printer setup done. Welcome to you.");
+  //myStepper.step(-20);
 
   getTemperature(true);
+  digitalWrite(VOLTSWITCH,HIGH);  
+
 }
 
 ////////////////////////////////////////////////////////
@@ -93,51 +95,61 @@ void loop() {
   //  delay(300);
   //  blink(7);
 
-  ////////////////////////////////// THERMAL HEAD CYCLE
-  if(getTemperature(false) >= MAXTEMP) {
-    Serial.println("========= TEMPERATURE WARNING !! aborting all");
-    resetPrinter(); // will set printing=false and stop Vh current
-    blink(10);
-    delay(10000);
-  }
 
-  if(printing) {
-    if(t==1) {
-      blink(1);
-      Serial.println("");
-      Serial.println("");
-      Serial.println("========= Printing cycle launch in 1 seconds !");
-      delay(1000);
-      blink(2);
-    }
-    if(t%1000000==0) {
-      Serial.print("Printing cycle k:");
-      Serial.println(t);
-      printTime("cycle"); 
-    }
-    cycle(t);
-    t = t+1;
-    if(t>NTOTAL) {
-      printing = false;
-      Serial.println("========= Printing cycle ends.");
-      resetPrinter();
-      myStepper.step(-120);
-    }
-  }
+  //  ////////////////////////////////// THERMAL HEAD CYCLE
+  //  if(getTemperature(false) >= MAXTEMP) {
+  //    Serial.println("========= TEMPERATURE WARNING !! aborting all");
+  //    resetPrinter(); // will set printing=false and stop Vh current
+  //    blink(10);
+  //    delay(10000);
+  //  }
+  //
+  //  if(printing) {
+  //    if(t==1) {
+  //      blink(1);
+  //      Serial.println("");
+  //      Serial.println("");
+  //      Serial.println("========= Printing cycle launch in 1 seconds !");
+  //      delay(1000);
+  //      blink(2);
+  //    }
+  //    if(t%1000000==0) {
+  //      Serial.print("Printing cycle k:");
+  //      Serial.println(t);
+  //      printTime("cycle"); 
+  //    }
+  //    cycle(t);
+  //    t = t+1;
+  //    if(t>NTOTAL) {
+  //      printing = false;
+  //      Serial.println("========= Printing cycle ends.");
+  //      resetPrinter();
+  //      myStepper.step(-120);
+  //    }
+  //  }
+
 
   // do things once at start, boy
-  if(goprint) {
-    goprint = false;
-    resetPrinter();
-    printImageData(sampleimage,432,1);
-    // plugging 24V POWER
-    setPinVal(VOLTSWITCH,HIGH);
-  }
+  //  if(goprint) {
+  //    goprint = false;
+  //    resetPrinter();
+  //    printImageData(sampleimage,432,1);
+  //    // plugging 24V POWER
+  //    setPinVal(VOLTSWITCH,HIGH);
+  //  }
 
   int val = digitalRead(buttonPin);  // read input value
   if(!printing && !goprint && val==HIGH) { 
-    Serial.println("Button pushed. Launching print");
+    //Serial.println("Button pushed. Launching print");
     goprint = true;
+    getTemperature(true);
+    printTester();
+    printTester();
+    printTester();
+    //myStepper.step(30);
+    //printTester();
+    //myStepper.step(60);
+    goprint = false;
   }
 }
 
@@ -243,21 +255,21 @@ void resetPrinter() {
 
 ////////////////////////////////////////////////////////
 void setPinVal(int pin, int val) {
-  if(pin!=6 && pin!=5) printTime("changed pin "+String(pin)+":");
+  //if(pin!=6 && pin!=5) printTime("changed pin "+String(pin)+":");
   digitalWrite(pin,val);
   /*
   if(debug) {
-    //Serial.print("Setting pin");
-  }
-  else {
-    if(pin==STB1 || pin==STB2 || pin==STB3) {
-      Serial.print(pin);
-      Serial.print(" STROBE: ");
-      Serial.println(val);
-      printTime("made strobe:");
-    }
-    digitalWrite(pin,val);
-  }*/
+   //Serial.print("Setting pin");
+   }
+   else {
+   if(pin==STB1 || pin==STB2 || pin==STB3) {
+   Serial.print(pin);
+   Serial.print(" STROBE: ");
+   Serial.println(val);
+   printTime("made strobe:");
+   }
+   digitalWrite(pin,val);
+   }*/
 }
 
 ////////////////////////////////////////////////////////
@@ -300,6 +312,65 @@ void blink(int howManyTimes) {
     delay(100);
   }
 }
+
+
+////////////////////////////////////////////////////////
+int pulsWidth = 1;
+int heatWidth = 900;
+// Tests
+void printTester() {
+  //Serial.println("===== Printer tester start");
+  //printTime("before");
+
+  digitalWrite(CLK, LOW);
+  digitalWrite(LAT, HIGH);
+  digitalWrite(STB1, HIGH);
+  digitalWrite(STB2, HIGH);
+  digitalWrite(STB3, HIGH);
+
+  digitalWrite(LAT, LOW);
+  
+  // go through all the bytes
+  digitalWrite(DATA, HIGH);
+  for(int n=0;n<432;n++) {
+    digitalWrite(DATA, HIGH);
+    digitalWrite(CLK, HIGH);
+    //delayMicroseconds(pulsWidth);
+    digitalWrite(CLK, LOW);
+    //delayMicroseconds(pulsWidth);
+  }
+  
+  // latch the data
+  digitalWrite(LAT, HIGH);
+  
+  //delayMicroseconds(pulsWidth);
+  //digitalWrite(LAT, HIGH);
+
+  //delayMicroseconds(pulsWidth);
+  //delayMicroseconds(pulsWidth);
+
+  //digitalWrite(CLK, LOW);
+
+  // print each of the 3 strobes
+  digitalWrite(STB1, LOW);
+  delayMicroseconds(heatWidth);
+  digitalWrite(STB1, HIGH);
+
+  digitalWrite(STB2, LOW);
+  delayMicroseconds(heatWidth);
+  digitalWrite(STB2, HIGH);
+
+  digitalWrite(STB3, LOW);
+  delayMicroseconds(heatWidth);
+  digitalWrite(STB3, HIGH);
+
+  //printTime("after");
+  //Serial.println("===== Printer tester done");
+}
+
+
+
+
 
 
 
