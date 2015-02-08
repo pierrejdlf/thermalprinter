@@ -22,11 +22,11 @@ def rgb2gray(rgb):
 def convertToH(filename):
   img = PIL.Image.open(filename)
   rgb_im = img.convert('RGB')
-  print "img size:", rgb_im.size
+  print "img size:\t\t", rgb_im.size
   w,h = rgb_im.size
-  print "band size:", w*8
+  print "band size (W*8):\t", w*8
   pixelist = list(rgb_im.getdata())
-  print "data length:", len(pixelist)
+  print "total n pixels:\t\t", len(pixelist)
   
   pixels = rgb_im.load()
   
@@ -35,11 +35,11 @@ def convertToH(filename):
   out = []
   for row in range(0, h/8 + 1):
     for col in range(0,w):
-      for sl in range(0,8):
-        #k = row*8*w + sl*w + col
-        if(row*8+sl<h):
-          v = pixels[col,row*8+sl]
-          #print "pixel (row/col/subline) ", row, col, sl, int(rgb2gray(v))
+      for dot in range(0,8):
+        #k = row*8*w + dot*w + col
+        if(row*8+dot<h):
+          v = pixels[col,row*8+dot]
+          #print "pixel (row/col/subline) ", row, col, dot, int(rgb2gray(v))
           out.append( int(rgb2gray(v)) )
         else:
           out.append( 255 ) # white
@@ -57,7 +57,7 @@ def convertToH(filename):
     fileOut.write(str(255-o)+"\n")
   fileOut.write("\n};")
   fileOut.close()
-  print "done: wrote imagedata.h"
+  print "wrote: imagedata.h"
 
 
 convertToH(filename)
