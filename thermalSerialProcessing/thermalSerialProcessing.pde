@@ -21,18 +21,26 @@ boolean arduinoReady = false;
 int currentLine = 0;
 int[] lines;
 
-boolean goprint = false; // MODE - GO PRINT
-boolean justlook = true; // MODE - JUST LOOK
+boolean GOPRINT = true; // MODE - GO PRINT
+boolean JUSTLOOK = false; // MODE - JUST LOOK
 
-int MAXWIDTH = 340; // max = 340 (35pixel ~ 1cm)
-int MARGINLEFT = 70; // min = 18
+boolean FROMFILE = true; // if false, from webcam !
+
+// (31pixel ~ 1cm)
+// CENTERED MAX ! image should be max 350px for a 20px margin
+int MARGINLEFT = 20; // min = 20 (~18)
+
+
 boolean FROMWHEREYOUARE = false;
+
+int DURDOTS = 10; // delay between dots
+int DURBAND = 2000; // delay between bands
 
 // OPENCV
 OpenCV opencv;
 Rectangle[] faces;
-int marg = 90;
-int wantW = 300; // extracted small image from webcam
+int FACEMARG = 68; // around detected face
+int FACEW = 300; // extracted small image from webcam
 
 void setup() {
   // OPENCV IMAGE
@@ -51,17 +59,17 @@ void setup() {
 }
 
 void draw() {
-  if (justlook) {
+  if (JUSTLOOK) {
     waitForImageFaceAndGetImage();
     delay(3000);
   }
-  if (goprint) {
-    goprint = false;
+  if (GOPRINT) {
+    GOPRINT = false;
     delay(2000);
 
     //////////////////////////// IMAGE SOURCE
-    //lines = initFromFile();
-    lines = initFromWebcam();
+    if(FROMFILE) lines = initFromFile();
+    if(!FROMFILE) lines = initFromWebcam();
 
     println("OK. Loaded image: ", W, "x", H);
 
@@ -78,7 +86,7 @@ void draw() {
       int[] sublines = subset(lines, currentLine);
       println("Will serial ask Adruino to print a band");
 
-      delay(7000);
+      delay(DURBAND);
 
       // print one band
       for (int col=0; col<W*8; col=col+8) {
@@ -89,7 +97,7 @@ void draw() {
         //delay(2);
         // print 8 dots
         for (int d=0; d<8; d=d+1) {
-          delay(90);
+          delay(DURDOTS);
           //print("pix",subcol[d]);
           myPort.write(int(subcol[d]));
         }
@@ -110,8 +118,8 @@ int[] initFromWebcam() {
     imArray = waitForImageFaceAndGetImage();
     delay(700);
   }
-  W = wantW;
-  H = wantW;
+  W = FACEW;
+  H = FACEW;
   return imArray;
 }
 int[] initFromFile() {
@@ -183,27 +191,27 @@ int[] waitForImageFaceAndGetImage() {
   opencv.loadCascade(OpenCV.CASCADE_FRONTALFACE);  
   faces = opencv.detect();
 
-  if (faces.length>0 && faces[0].width>180 && faces[0].x>marg && faces[0].y>marg && faces[0].x+faces[0].width<opencv.width-marg && faces[0].y+faces[0].height<opencv.height-marg) {
+  if (faces.length>0 && faces[0].width>180 && faces[0].x>FACEMARG && faces[0].y>FACEMARG && faces[0].x+faces[0].width<opencv.width-FACEMARG && faces[0].y+faces[0].height<opencv.height-FACEMARG) {
     //println(faces[0].x, faces[0].y, faces[0].width, faces[0].height);
     noFill();
     stroke(0, 255, 0);
     strokeWeight(3);
     rect(faces[0].x, faces[0].y, faces[0].width, faces[0].height);
     stroke(255, 0, 0);
-    rect(faces[0].x-marg, faces[0].y-marg, faces[0].width+2*marg, faces[0].height+2*marg);
+    rect(faces[0].x-FACEMARG, faces[0].y-FACEMARG, faces[0].width+2*FACEMARG, faces[0].height+2*FACEMARG);
 
-    PImage ext = img.get(faces[0].x-marg, faces[0].y-marg, faces[0].width+2*marg, faces[0].height+2*marg);
+    PImage ext = img.get(faces[0].x-FACEMARG, faces[0].y-FACEMARG, faces[0].width+2*FACEMARG, faces[0].height+2*FACEMARG);
     //ext.filter(GRAY);
     //ext.filter(DILATE);
-    ext.resize(wantW, wantW);
+    ext.resize(FACEW, FACEW);
     image(ext, 0, 0);
     //ext.loadPixels();
     int minBright = 255; // init
     int maxBright = 0; // init
-    for (int row=0; row<wantW/8+1; row=row+1) {
-      for (int col=0; col<wantW; col=col+1) {
+    for (int row=0; row<FACEW/8+1; row=row+1) {
+      for (int col=0; col<FACEW; col=col+1) {
         for (int dot=0; dot<8; dot=dot+1) {
-          if (row*8+dot<wantW) {
+          if (row*8+dot<FACEW) {
             int b = (int)brightness(ext.get(col, row*8+dot));
             //int b = grayscale(ext.pixels[row*8+dot*wantW+col]);
             //println("val",b);
@@ -215,7 +223,7 @@ int[] waitForImageFaceAndGetImage() {
       }
     }
     for (int i=0; i<CAPTIMAGE.length; i=i+1) {
-      CAPTIMAGE[i] = 255 - (int)map( CAPTIMAGE[i], minBright, maxBright, 50, 255 );
+      CAPTIMAGE[i] = 255 - (int)map( CAPTIMAGE[i], minBright, maxBright, 0, 255 );
       //println("res",iCAPTIMAGE[i]);
     }
   } else {
